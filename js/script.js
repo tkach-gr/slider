@@ -193,7 +193,6 @@ class Slider {
 
     swapElements({ first, second, side }) {
         if(side === "left") {
-            console.log({side, first: first.children.length});
             let el = first.removeChild(first.lastElementChild);
             second.prepend(el);
 
@@ -201,16 +200,9 @@ class Slider {
             first = second;
             second = temp;
         } else if (side === "right") {
-            console.log({side, second: second.children.length});
             let el = second.removeChild(second.firstElementChild);
             first.appendChild(el);
         }
-
-        // if (second.children.length > 0) return;
-
-        // let temp = this.storage.second;
-        // this.storage.second = this.storage.first;
-        // this.storage.first = temp;
     }
 
     dragContainers({ first, second, side }) {
@@ -231,16 +223,10 @@ class Slider {
         } else {
             PropertyManager.changeValue(first.style, "left", -100);
         }
-
-        // if (second.children.length > 0) return;
-
-        // let containerShift = this.elCount * 2;
-        // PropertyManager.changeValue(second.style, "left", containerShift * 100 * side);
     }
 
     moveElements(elToMove) {
         for(let i = 0; i < Math.abs(elToMove); i++) {
-            console.log({elToMove});
             if(elToMove > 0) {
                 let second = this.storage.second;
                 if(second.children.length <= 0) {
