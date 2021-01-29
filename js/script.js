@@ -73,7 +73,7 @@ class PropertyManager {
 }
 
 class PointerEventHandler {
-    constructor(source, down, move, up, cancel) {
+    constructor(source, down, move, up, leave) {
         this.source = source;
         let handler = this;
 
@@ -89,32 +89,24 @@ class PointerEventHandler {
             up(e);
         };
 
-        this.cancel = e => {
+        this.leave = e => {
             handler.unsubscribe();
-            cancel(e);
+            leave(e);
         };
 
         this.source.addEventListener("pointerdown", this.down);
     }
 
-
-
-    handleEvent() {
-        if(this.handlersList.length === 0) {
-
-        }
-    }
-
     subscribe() {
         this.source.addEventListener("pointermove", this.move);
         this.source.addEventListener("pointerup", this.up);
-        this.source.addEventListener("pointercancel", this.cancel);
+        this.source.addEventListener("pointerleave", this.leave);
     }
 
     unsubscribe() {
         this.source.removeEventListener("pointermove", this.move);
         this.source.removeEventListener("pointerup", this.up);
-        this.source.removeEventListener("pointercancel", this.cancel);
+        this.source.removeEventListener("pointerleave", this.leave);
     }
 }
 
@@ -127,11 +119,12 @@ class SliderSwipeEventHandler {
             e => sliderHandler.handleDownEvent(e),
             e => sliderHandler.handleMoveEvent(e),
             e => sliderHandler.handleUpEvent(e),
-            e => sliderHandler.handleUpEvent(e)
+            e => sliderHandler.handleLeaveEvent(e)
         );
     }
 
     handleDownEvent(event) {
+        event.preventDefault();
         this.start = event.clientX;
     }
 
@@ -142,8 +135,17 @@ class SliderSwipeEventHandler {
     }
 
     handleUpEvent(event) {
+        let slider = this.slider;
+        slider.point.classList.add("slider__smooth");
+
         let end = event.clientX;
-        this.slider.movePoint(-(end - this.start));
+        slider.movePoint(-(end - this.start));
+
+        setTimeout(() => slider.point.classList.remove("slider__smooth"), 500);
+    }
+
+    handleLeaveEvent(event) {
+        this.handleUpEvent(event);
     }
 }
 
@@ -240,7 +242,7 @@ class Slider {
         let count = (left - shift) / this.pointWidth;
         let elToMove = 0;
 
-        if(anchor) { 
+        if(anchor) {
             shift = left - (Math.round(count) * this.pointWidth); 
             count = (left - shift) / this.pointWidth;
         }
@@ -251,7 +253,7 @@ class Slider {
             elToMove = this.localCount - count; 
             this.localCount = count;
         }
-
+        
         PropertyManager.changeValue(point.style, "left",  -shift);
 
         for(let i = 0; i < Math.abs(elToMove); i++) {
