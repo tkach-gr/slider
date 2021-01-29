@@ -130,7 +130,7 @@ class SliderSwipeEventHandler {
 
     handleMoveEvent(event) {
         let end = event.clientX;
-        this.slider.movePoint(-(end - this.start), false);
+        this.slider.movePoint(-(Math.round(end - this.start)), false);
         this.start = end;
     }
 
