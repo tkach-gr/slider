@@ -108,13 +108,20 @@ class PointerEventHandler {
         this.source.removeEventListener("pointerup", this.up);
         this.source.removeEventListener("pointerleave", this.leave);
     }
+
+    stop() {
+        this.source.removeEventListener("pointermove", this.down);
+        this.source.removeEventListener("pointermove", this.move);
+        this.source.removeEventListener("pointerup", this.up);
+        this.source.removeEventListener("pointerleave", this.leave);
+    }
 }
 
 class SliderSwipeEventHandler {
     constructor(slider) {
         this.slider = slider;
         let sliderHandler = this;
-        new PointerEventHandler(
+        this.handler = new PointerEventHandler(
             slider.source,
             e => sliderHandler.handleDownEvent(e),
             e => sliderHandler.handleMoveEvent(e),
@@ -125,6 +132,7 @@ class SliderSwipeEventHandler {
 
     handleDownEvent(event) {
         event.preventDefault();
+        this.slider.point.classList.remove("slider__smooth");
         this.start = event.clientX;
     }
 
@@ -147,6 +155,10 @@ class SliderSwipeEventHandler {
     handleLeaveEvent(event) {
         this.handleUpEvent(event);
     }
+
+    stop() {
+        this.handler.stop();
+    }
 }
 
 class Slider {
@@ -157,30 +169,30 @@ class Slider {
             first: ComponentFinder.findByClass(this.point, "slider__wrapper"),
             second: ComponentFinder.findByClass(this.point, "slider__wrapper_second")
         };
-        this.pointWidth = this.point.clientWidth;
         this.elCount = this.storage.first.children.length;
         this.localCount = 0;
 
         this.setDefault();
+        this.customizeSizes();
 
-        // let slider = this;
-        // window.addEventListener("resize", () => {
-        //     slider.customizeSizes();
-        // });
+        let slider = this;
+        this.resizeHandler = function(e) { slider.customizeSizes(); };
+        window.addEventListener("resize", this.resizeHandler);
     }
 
     customizeSizes() {
-        // let style = this.source.style;
-        // let width = this.source.clientWidth;
-        // let computedStyle = getComputedStyle(this.source);
-        // let leftMargin = parseInt(computedStyle.marginLeft);
-        // let rigthMargin = parseInt(computedStyle.marginRight);
-        // style.height = ((width + leftMargin + rigthMargin) / 100 * 56.25) + "px";
+        let el;
+        if(this.storage.first.children.length !== 0) {
+            el = this.storage.first.firstElementChild;
+        } else {
+            el = this.storage.second.firstElementChild;
+        }
+
+        this.pointWidth = el.clientWidth;
     }
 
     setDefault() {
         this.point.style.left = "0px";
-        //set point's width and height
 
         let firstLength = this.storage.first.children.length;
         this.storage.first.style.width = firstLength + "00%";
@@ -283,10 +295,90 @@ class Slider {
     }
 
     start() {
-        new SliderSwipeEventHandler(this);
+        this.swipeHandler = new SliderSwipeEventHandler(this);
+    }
+
+    destroy() {
+        this.swipeHandler.stop();
+        window.removeEventListener("resize", this.resizeHandler);
     }
 }
 
-let sliderObj = document.getElementsByClassName("slider__content")[0];
-let slider = new Slider(sliderObj);
-slider.start();
+class SliderTransformer {
+    static slidesSymbol = Symbol("slides");
+
+    static createElement(tag, ...classNames) {
+        let element = document.createElement(tag);
+        classNames.forEach(item => {
+            element.classList.add(item);
+        });
+        return element;
+    }
+
+    static transform(slider) {
+        let sliderWrapper = this.createElement("div", "slider__wrapper");
+        let sliderWrapperSecond = this.createElement("div", "slider__wrapper", "slider__wrapper_second");
+
+        slider[this.slidesSymbol] = [];
+        let slides = slider.children;
+        while(slides.length !== 0) {
+            let slide = slider.removeChild(slider.firstElementChild);
+
+            slider[this.slidesSymbol].push(slide);
+            sliderWrapper.append(slide);
+
+            let slideCopy = slide.cloneNode(true);
+            sliderWrapperSecond.append(slideCopy);
+        }
+
+        let sliderPoint = this.createElement("div", "slider__point");
+        sliderPoint.append(sliderWrapper, sliderWrapperSecond);
+
+        let sliderContent =  this.createElement("div", "slider__content");
+        sliderContent.append(sliderPoint);
+
+        slider.classList.add("slider");
+        slider.append(sliderContent);
+    }
+
+    static untransform(slider) {
+        slider[this.slidesSymbol].forEach(item => {
+            slider.append(item);
+        });
+        
+        let content = ComponentFinder.findByClass(slider, "slider__content");
+        content.remove();
+
+        slider.classList.remove("slider");
+    }
+}
+
+function createSlider(sliderElement) {
+    SliderTransformer.transform(sliderElement);
+    let sliderContentElement = ComponentFinder.findByClass(sliderElement, "slider__content")
+    let slider = new Slider(sliderContentElement);
+    slider.start();
+
+    return slider;
+}
+
+function resizeSlider() {
+    if(slider === null && document.documentElement.clientWidth <= 768) {
+        slider = createSlider(sliderElement);
+    }
+
+    if(slider !== null && document.documentElement.clientWidth > 768) {
+        SliderTransformer.untransform(sliderElement);
+        slider.destroy();
+        slider = null;
+    }
+}
+
+let sliderElement = document.getElementById("slider");
+let slider = null;
+
+resizeSlider();
+
+window.addEventListener("resize", () => {
+    resizeSlider();
+});
