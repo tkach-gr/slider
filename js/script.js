@@ -146,10 +146,10 @@ class SliderSwipeEventHandler {
         let slider = this.slider;
         slider.point.classList.add("slider__smooth");
 
-        let end = event.clientX;
-        slider.movePoint(-(end - this.start));
+        let end = event.clientX > 0 ? event.clientX : this.start;
+        slider.movePoint(-(Math.round(end - this.start)));
 
-        setTimeout(() => slider.point.classList.remove("slider__smooth"), 500);
+        setTimeout(() => slider.point.classList.remove("slider__smooth"), 200);
     }
 
     handleLeaveEvent(event) {
@@ -169,29 +169,39 @@ class Slider {
             first: ComponentFinder.findByClass(this.point, "slider__wrapper"),
             second: ComponentFinder.findByClass(this.point, "slider__wrapper_second")
         };
-        this.elCount = this.storage.first.children.length;
-        this.localCount = 0;
-
-        this.setDefault();
+        this.pointWidth = this.point.clientWidth;
+        
         this.customizeSizes();
+        this.setDefault();
+        
+        this.elCount = this.storage.first.children.length;
 
         let slider = this;
-        this.resizeHandler = function(e) { slider.customizeSizes(); };
+        this.resizeHandler = e => { 
+            slider.customizeSizes();
+            slider.setDefault();
+        };
         window.addEventListener("resize", this.resizeHandler);
     }
 
     customizeSizes() {
-        let el;
-        if(this.storage.first.children.length !== 0) {
-            el = this.storage.first.firstElementChild;
-        } else {
-            el = this.storage.second.firstElementChild;
+        let first = this.storage.first;
+        let second = this.storage.second;
+
+        while(first.children.length > second.children.length) {
+            let el = first.removeChild(first.lastElementChild);
+            second.prepend(el);
         }
 
-        this.pointWidth = el.clientWidth;
+        while(first.children.length < second.children.length) {
+            let el = second.removeChild(second.firstElementChild);
+            first.appendChild(el);
+        }
     }
 
     setDefault() {
+        this.localCount = 0;
+
         this.point.style.left = "0px";
 
         let firstLength = this.storage.first.children.length;
@@ -281,7 +291,7 @@ class Slider {
             shift = left - (Math.round(count) * this.pointWidth); 
             count = (left - shift) / this.pointWidth;
         }
-
+            
         count = count > 0 ? Math.floor(count) : Math.ceil(count);
 
         if(this.localCount !== count) {
@@ -353,32 +363,41 @@ class SliderTransformer {
     }
 }
 
-function createSlider(sliderElement) {
-    SliderTransformer.transform(sliderElement);
-    let sliderContentElement = ComponentFinder.findByClass(sliderElement, "slider__content")
-    let slider = new Slider(sliderContentElement);
-    slider.start();
-
-    return slider;
-}
-
-function resizeSlider() {
-    if(slider === null && document.documentElement.clientWidth <= 768) {
-        slider = createSlider(sliderElement);
+class SliderBuilder {
+    constructor(sliderElement, breakpoint) {
+        this.slider = null;
+        this.sliderElement = sliderElement;
+        this.breakpoint = breakpoint;
     }
 
-    if(slider !== null && document.documentElement.clientWidth > 768) {
-        SliderTransformer.untransform(sliderElement);
-        slider.destroy();
-        slider = null;
+    createSlider() {
+        SliderTransformer.transform(this.sliderElement);
+        let sliderContentElement = ComponentFinder.findByClass(this.sliderElement, "slider__content")
+        this.slider = new Slider(sliderContentElement);
+        this.slider.start();
+    }
+    
+    resizeSlider() {
+        if(this.slider === null && document.documentElement.clientWidth <= this.breakpoint) {
+            this.createSlider(this.sliderElement);
+        }
+    
+        if(this.slider !== null && document.documentElement.clientWidth > this.breakpoint) {
+            SliderTransformer.untransform(this.sliderElement);
+            this.slider.destroy();
+            this.slider = null;
+        }
+    }
+
+    build() {
+        this.resizeSlider();
+
+        window.addEventListener("resize", () => {
+            this.resizeSlider();
+        });
     }
 }
 
 let sliderElement = document.getElementById("slider");
-let slider = null;
-
-resizeSlider();
-
-window.addEventListener("resize", () => {
-    resizeSlider();
-});
+let sliderBuilder = new SliderBuilder(sliderElement, 1000);
+sliderBuilder.build();
